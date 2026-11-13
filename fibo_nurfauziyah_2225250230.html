@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIBO-STAR 3D: Cockpit Edition</title>
+    <style>
+        :root {
+            --bg-deep: #050814;
+            --bg-panel: rgba(13, 20, 38, 0.85);
+            --border-neon: #00f3ff;
+            --accent-amber: #ffb703;
+            --accent-cyan: #00f3ff;
+            --accent-purple: #9d4edd;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 3D Starfield Background */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at center, #0b132b 0%, #030712 100%);
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 920px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.15), inset 0 0 20px rgba(0, 243, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (min-width: 481px) {
+            .app-container {
+                border-radius: 24px;
+                height: 90vh;
+            }
+        }
+
+        /* Cockpit Header */
+        .cockpit-header {
+            padding: 12px 16px;
+            background: rgba(3, 7, 18, 0.9);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .ship-title {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .audio-toggle {
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .audio-toggle.active {
+            background: var(--accent-cyan);
+            color: var(--bg-deep);
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        /* Intercom Captain Box */
+        .intercom-box {
+            margin: 10px 16px 0 16px;
+            background: rgba(15, 23, 42, 0.9);
+            border-left: 4px solid var(--accent-amber);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .captain-avatar {
+            width: 38px;
+            height: 38px;
+            background: radial-gradient(circle, var(--accent-amber) 0%, #b45309 100%);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            box-shadow: 0 0 10px rgba(255, 183, 3, 0.5);
+        }
+
+        .intercom-text {
+            font-size: 0.8rem;
+            color: var(--text-main);
+            line-height: 1.3;
+        }
+
+        .intercom-text strong {
+            color: var(--accent-amber);
+            display: block;
+            margin-bottom: 2px;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+
+        .content-area::-webkit-scrollbar {
+            width: 4px;
+        }
+        .content-area::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 3D Hologram Cards & Tactile Buttons */
+        .holo-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform-style: preserve-3d;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .holo-card:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-tactile-3d {
+            background: linear-gradient(135deg, rgba(0, 243, 255, 0.2), rgba(0, 102, 204, 0.3));
+            border: 1px solid var(--accent-cyan);
+            color: var(--text-main);
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            box-shadow: 0 4px 0 rgba(0, 150, 200, 0.4), 0 6px 12px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-tactile-3d:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0, 150, 200, 0.4), 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .btn-amber {
+            background: linear-gradient(135deg, rgba(255, 183, 3, 0.2), rgba(180, 83, 9, 0.3));
+            border-color: var(--accent-amber);
+            box-shadow: 0 4px 0 rgba(180, 100, 0, 0.4), 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        /* Spaceship Visualizer & Cube Blocks */
+        .spaceship-track {
+            background: rgba(3, 7, 18, 0.8);
+            border: 1px dashed rgba(0, 243, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            position: relative;
+            overflow: hidden;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .starfighter-icon {
+            font-size: 2rem;
+            animation: floatShip 2s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 8px var(--accent-cyan));
+            margin-bottom: 6px;
+        }
+
+        @keyframes floatShip {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(-6px) rotate(2deg); }
+        }
+
+        .sequence-cubes {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            max-width: 100%;
+            padding: 4px;
+        }
+
+        .cube-item {
+            min-width: 38px;
+            height: 38px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: var(--text-main);
+            transition: all 0.3s;
+        }
+
+        .cube-item span {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+        }
+
+        .cube-item.active-prev {
+            border-color: var(--accent-amber);
+            background: rgba(255, 183, 3, 0.2);
+            color: var(--accent-amber);
+            box-shadow: 0 0 10px rgba(255, 183, 3, 0.4);
+        }
+
+        .cube-item.active-curr {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 243, 255, 0.25);
+            color: var(--accent-cyan);
+            transform: scale(1.08);
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
+        }
+
+        /* Controls Grid */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        /* Bottom Tab Bar */
+        .bottom-nav {
+            background: rgba(3, 7, 18, 0.95);
+            border-top: 1px solid rgba(0, 243, 255, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 4px;
+            z-index: 10;
+        }
+
+        .nav-item {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        .nav-item span.nav-icon {
+            font-size: 1.2rem;
+        }
+
+        .nav-item.active {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+        }
+
+        .nav-item.active span.nav-icon {
+            transform: scale(1.1);
+        }
+
+        /* Quiz & Mission Elements */
+        .option-btn {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text-main);
+            text-align: left;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .option-btn:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .option-btn.correct {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .option-btn.incorrect {
+            border-color: var(--danger);
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge-cyan { background: rgba(0, 243, 255, 0.2); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+        .badge-amber { background: rgba(255, 183, 3, 0.2); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+        .badge-purple { background: rgba(157, 78, 221, 0.2); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+
+        .feedback-box {
+            background: rgba(3, 7, 18, 0.85);
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 0.85rem;
+            border-left: 4px solid var(--accent-cyan);
+            margin-top: 10px;
+            display: none;
+        }
+
+        input[type="number"], input[type="text"] {
+            background: rgba(3, 7, 18, 0.9);
+            border: 1px solid rgba(0, 243, 255, 0.4);
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: var(--text-main);
+            font-size: 1rem;
+            width: 100%;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="starfield"></div>
+
+    <div class="app-container">
+        <!-- Kokpit Header -->
+        <header class="cockpit-header">
+            <div class="ship-title">
+                🚀 FIBO-STAR 3D
+            </div>
+            <button class="audio-toggle" id="audioToggleBtn" onclick="toggleAudio()">Audio Sfx: OFF</button>
+        </header>
+
+        <!-- Intercom Captain Fibo -->
+        <div class="intercom-box" id="intercomBox">
+            <div class="captain-avatar">👨‍🚀</div>
+            <div class="intercom-text" id="captainMessage">
+                <strong>KAPTEN FIBO (NAVIGATOR):</strong>
+                Selamat datang di Kokpit 3D. Pilih menu di bawah untuk memulai misi pemahaman Pola Bilangan Fibonacci!
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="content-area">
+
+            <!-- TAB 1: RADAR KONSEP -->
+            <div class="tab-content active" id="tab-konsep">
+                <div class="holo-card">
+                    <div class="section-title">📡 Pemilih Koordinat Awal Suku</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                        Tentukan titik awal galaksi angka Anda. Suku berikutnya selalu merupakan hasil penjumlahan dua suku sebelumnya (<span style="color:var(--accent-amber)">Uₙ₋₂</span> + <span style="color:var(--accent-amber)">Uₙ₋₁</span>).
+                    </p>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <button class="btn-tactile-3d btn-amber" onclick="setInitialFib(0, 1)" style="flex:1;">U₁=0, U₂=1</button>
+                        <button class="btn-tactile-3d" onclick="setInitialFib(1, 1)" style="flex:1;">U₁=1, U₂=1</button>
+                        <button class="btn-tactile-3d" onclick="setInitialFib(2, 3)" style="flex:1;">U₁=2, U₂=3</button>
+                    </div>
+                </div>
+
+                <div class="holo-card">
+                    <div class="section-title">🛰️ Radar Visualisasi Starfighter 3D</div>
+                    <div class="spaceship-track">
+                        <div class="starfighter-icon" id="shipIcon">🛸</div>
+                        <div style="font-size: 0.75rem; color: var(--accent-cyan); margin-bottom: 6px;" id="shipStatusText">Posisi: Suku ke-1</div>
+                        <div class="sequence-cubes" id="conceptCubes"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);" id="formulaDetail">Rumus: U₁ = 0, U₂ = 1</div>
+                        <div class="badge badge-cyan" id="currentValBadge">Nilai: 0</div>
+                    </div>
+                </div>
+
+                <div class="holo-card">
+                    <div class="section-title">🎮 Panel Kendali Tempo</div>
+                    <div class="controls-grid">
+                        <button class="btn-tactile-3d" onclick="stepConcept(-1)">⏪ Mundur</button>
+                        <button class="btn-tactile-3d btn-amber" onclick="resetConcept()">🔄 Ulangi</button>
+                        <button class="btn-tactile-3d" onclick="stepConcept(1)">Lanjut ⏩</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: MISI LATIHAN -->
+            <div class="tab-content" id="tab-latihan">
+                <div class="holo-card">
+                    <div class="section-title">🎯 Sektor Pelatihan Berjenjang</div>
+                    <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+                        <button class="btn-tactile-3d btn-cyan" id="lvlBtn1" onclick="switchLevel(1)" style="flex:1;">Level 1</button>
+                        <button class="btn-tactile-3d" id="lvlBtn2" onclick="switchLevel(2)" style="flex:1;">Level 2</button>
+                        <button class="btn-tactile-3d" id="lvlBtn3" onclick="switchLevel(3)" style="flex:1;">Level 3 (Mundur)</button>
+                    </div>
+                    <div id="missionContainer">
+                        <!-- Dynamic Mission Content -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: LOG LITERASI -->
+            <div class="tab-content" id="tab-literasi">
+                <div class="holo-card">
+                    <div class="section-title">📜 Log Kontekstual Galaksi (Literasi)</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                        Pecahkan masalah dunia nyata luar angkasa menggunakan pola Fibonacci.
+                    </p>
+                    <div style="background: rgba(3, 7, 18, 0.7); border-radius: 12px; padding: 12px; margin-bottom: 12px; font-size: 0.85rem; line-height: 1.4;" id="litStoryText">
+                        Stasiun luar angkasa menumbuhkan panel surya berbentuk cabang tanaman galaksi. Cabang pertama menghasilkan 1 modul, cabang kedua 1 modul, cabang ketiga 2 modul, lalu 3, dan 5 modul. Berapa jumlah modul pada cabang ke-7?
+                    </div>
+                    <button class="btn-tactile-3d btn-amber" onclick="toggleLitHighlight()" style="width: 100%; margin-bottom: 12px;">🔍 Pemindai Info Penting</button>
+                    <div id="litQuestionArea">
+                        <input type="number" id="litAnswerInput" placeholder="Masukkan jumlah modul..." style="margin-bottom: 8px;">
+                        <button class="btn-tactile-3d" onclick="checkLitAnswer()" style="width: 100%;">Kirim Solusi Sinyal</button>
+                    </div>
+                    <div class="feedback-box" id="litFeedback"></div>
+                </div>
+            </div>
+
+            <!-- TAB 4: SIMULASI KUIS -->
+            <div class="tab-content" id="tab-kuis">
+                <div class="holo-card">
+                    <div class="section-title">⚡ Simulasi Pertempuran Sinyal (Kuis)</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.8rem;">
+                        <span id="quizProgressNum">Misi: 1 / 5</span>
+                        <span id="quizScoreText" style="color: var(--accent-amber);">Energi Skor: 0</span>
+                    </div>
+                    <div style="background: rgba(3, 7, 18, 0.8); border-radius: 12px; padding: 14px; margin-bottom: 12px;" id="quizQuestionBox">
+                        <!-- Quiz Question -->
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;" id="quizOptionsBox">
+                        <!-- Options -->
+                    </div>
+                    <button class="btn-tactile-3d btn-amber" onclick="useRadarHint()" style="width: 100%; margin-top: 10px;" id="hintBtn">💡 Bantuan Radar Petunjuk (3)</button>
+                    <div class="feedback-box" id="quizFeedback"></div>
+                </div>
+            </div>
+
+            <!-- TAB 5: KOMPARASI POLA -->
+            <div class="tab-content" id="tab-pola">
+                <div class="holo-card">
+                    <div class="section-title">⚖️ Pemindai Komparasi Tiga Pola</div>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                        Jangan sampai keliru! Bandingkan perbedaan pola Aritmetika, Geometri, dan Fibonacci dalam satu layar kokpit.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.8rem;">
+                        <div style="background: rgba(3,7,18,0.7); padding: 10px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">
+                            <strong>1. Barisan Aritmetika:</strong> Beda/selisih antar suku selalu <em>tetap</em>.<br>
+                            <span style="color:var(--text-muted);">Contoh: 2, 5, 8, 11 (+3 setiap langkah)</span>
+                        </div>
+                        <div style="background: rgba(3,7,18,0.7); padding: 10px; border-radius: 8px; border-left: 3px solid var(--accent-purple);">
+                            <strong>2. Barisan Geometri:</strong> Rasio/pengali antar suku selalu <em>tetap</em>.<br>
+                            <span style="color:var(--text-muted);">Contoh: 3, 6, 12, 24 (×2 setiap langkah)</span>
+                        </div>
+                        <div style="background: rgba(3,7,18,0.7); padding: 10px; border-radius: 8px; border-left: 3px solid var(--accent-amber);">
+                            <strong>3. Barisan Fibonacci:</strong> Penjumlahan dua suku sebelumnya (<span style="color:var(--accent-amber)">Uₙ₋₂ + Uₙ₋₁</span>).<br>
+                            <span style="color:var(--text-muted);">Contoh: 1, 1, 2, 3, 5, 8</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Navigation Bar -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="switchTab('konsep', this)">
+                <span class="nav-icon">📡</span>
+                <span>Konsep</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('latihan', this)">
+                <span class="nav-icon">🎯</span>
+                <span>Misi</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('literasi', this)">
+                <span class="nav-icon">📜</span>
+                <span>Literasi</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('kuis', this)">
+                <span class="nav-icon">⚡</span>
+                <span>Simulasi</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('pola', this)">
+                <span class="nav-icon">⚖️</span>
+                <span>Komparasi</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // --- Web Audio API Synthesizer ---
+        let audioEnabled = false;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('audioToggleBtn');
+            if(audioEnabled) {
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                btn.textContent = 'Audio Sfx: ON';
+                btn.classList.add('active');
+                playTone(600, 0.1, 'sine');
+            } else {
+                btn.textContent = 'Audio Sfx: OFF';
+                btn.classList.remove('active');
+            }
+        }
+
+        function playTone(freq, duration, type='sine') {
+            if(!audioEnabled) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playSuccessSound() {
+            playTone(440, 0.1);
+            setTimeout(() => playTone(660, 0.15), 100);
+        }
+
+        function playErrorSound() {
+            playTone(200, 0.2, 'sawtooth');
+        }
+
+        // --- Captain Fibo Messages ---
+        const captainMessages = {
+            konsep: "Perhatikan pergerakan Starfighter di radar! Setiap angka diperoleh dengan menjumlahkan dua angka di belakangnya.",
+            latihan: "Selesaikan misi latihan berjenjang ini secara perlahan. Gunakan hologram papan catatan jika hitungan mulai rumit.",
+            literasi: "Baca saksama skenario stasiun luar angkasa. Gunakan tombol Pemindai untuk menemukan data penting!",
+            kuis: "Uji kemampuan sinyal Anda di sini! Jawab tanpa panik, kumpulkan skor energi maksimal.",
+            pola: "Ingat baik-baik perbedaan Fibonacci dengan Aritmetika dan Geometri agar tidak terkecoh di galaksi."
+        };
+
+        function switchTab(tabId, el) {
+            playTone(500, 0.05);
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabId).classList.add('active');
+            el.classList.add('active');
+            
+            document.getElementById('captainMessage').innerHTML = `<strong>KAPTEN FIBO (NAVIGATOR):</strong> ${captainMessages[tabId]}`;
+        }
+
+        // --- Tab 1: Konsep & Visualizer ---
+        let fibSeq = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+        let currentStep = 0; // Index 0 -> U1
+
+        function setInitialFib(n1, n2) {
+            playTone(700, 0.08);
+            if(n1 === 0) fibSeq = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+            else if(n1 === 1) fibSeq = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
+            else if(n1 === 2) fibSeq = [2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377];
+            currentStep = 0;
+            renderConcept();
+            document.getElementById('formulaDetail').textContent = `Rumus: U₁ = ${fibSeq[0]}, U₂ = ${fibSeq[1]}`;
+        }
+
+        function stepConcept(dir) {
+            playTone(450, 0.06);
+            currentStep += dir;
+            if(currentStep < 0) currentStep = 0;
+            if(currentStep >= fibSeq.length) currentStep = fibSeq.length - 1;
+            renderConcept();
+        }
+
+        function resetConcept() {
+            playTone(400, 0.08);
+            currentStep = 0;
+            renderConcept();
+        }
+
+        function renderConcept() {
+            const container = document.getElementById('conceptCubes');
+            container.innerHTML = '';
+            
+            for(let i = 0; i <= currentStep; i++) {
+                const cube = document.createElement('div');
+                cube.className = 'cube-item';
+                if(i === currentStep && i >= 2) {
+                    cube.classList.add('active-curr');
+                } else if(i === currentStep - 1 || i === currentStep - 2) {
+                    cube.classList.add('active-prev');
+                }
+                cube.innerHTML = `${fibSeq[i]}<span>U${i+1}</span>`;
+                container.appendChild(cube);
+            }
+            
+            document.getElementById('shipStatusText').textContent = `Posisi Starfighter: Suku ke-${currentStep + 1} (U${currentStep + 1})`;
+            document.getElementById('currentValBadge').textContent = `Nilai: ${fibSeq[currentStep]}`;
+        }
+        renderConcept();
+
+        // --- Tab 2: Latihan Berjenjang ---
+        let currentLevel = 1;
+        const missionData = {
+            1: { q: "Lanjutkan 2 suku berikutnya dari deret: 1, 1, 2, 3, 5, 8, ...", ans1: 13, ans2: 21, hint: "Jumlahkan 5 + 8, lalu hasil terakhir dengan 8." },
+            2: { q: "Tentukan suku ke-10 dari deret awal 0, 1, 1, 2, 3, ... (Suku ke-9 adalah 21, Suku ke-8 adalah 13)", ans1: 34, hint: "Suku ke-10 = Suku ke-9 + Suku ke-8." },
+            3: { q: "Diketahui dua suku berurutan adalah 13 dan 21. Berapakah suku SEBELUM angka 13 dalam arah mundur?", ans1: 8, hint: "Arah mundur menggunakan pengurangan: 21 dikurangi 13." }
+        };
+
+        function switchLevel(lvl) {
+            playTone(550, 0.05);
+            currentLevel = lvl;
+            for(let i=1; i<=3; i++) {
+                document.getElementById(`lvlBtn${i}`).classList.remove('btn-cyan');
+            }
+            document.getElementById(`lvlBtn${lvl}`).classList.add('btn-cyan');
+            renderMission();
+        }
+
+        function renderMission() {
+            const m = missionData[currentLevel];
+            const container = document.getElementById('missionContainer');
+            container.innerHTML = `
+                <div style="font-size: 0.85rem; line-height: 1.4; margin-bottom: 12px;">${m.q}</div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input type="number" id="missionInput1" placeholder="Jawaban...">
+                </div>
+                <button class="btn-tactile-3d" onclick="checkMissionAnswer()" style="width: 100%; margin-bottom: 8px;">Kirim Sinyal Jawaban</button>
+                <div style="font-size: 0.75rem; color: var(--accent-amber); cursor: pointer; text-align: center; margin-bottom: 8px;" onclick="alert('Petunjuk Misi: ' + '${m.hint}')">💡 Buka Petunjuk Sinyal</div>
+                <div class="feedback-box" id="missionFeedback"></div>
+            `;
+        }
+
+        function checkMissionAnswer() {
+            const val = parseInt(document.getElementById('missionInput1').value);
+            const m = missionData[currentLevel];
+            const fb = document.getElementById('missionFeedback');
+            fb.style.display = 'block';
+            
+            if(val === m.ans1) {
+                playSuccessSound();
+                fb.style.borderLeftColor = 'var(--success)';
+                fb.innerHTML = `<strong style="color:var(--success)">BERHASIL!</strong> Logika perhitungan Anda tepat sasaran.`;
+            } else {
+                playErrorSound();
+                fb.style.borderLeftColor = 'var(--danger)';
+                fb.innerHTML = `<strong style="color:var(--danger)">KURANG TEPAT!</strong> ${m.hint}`;
+            }
+        }
+        renderMission();
+
+        // --- Tab 3: Literasi ---
+        function toggleLitHighlight() {
+            playTone(600, 0.05);
+            const textEl = document.getElementById('litStoryText');
+            textEl.innerHTML = `Stasiun luar angkasa menumbuhkan panel surya berbentuk cabang tanaman galaksi. Cabang pertama menghasilkan <span style="background:rgba(0,243,255,0.3); color:var(--accent-cyan); padding:2px 4px; border-radius:4px;">1 modul</span>, cabang kedua <span style="background:rgba(0,243,255,0.3); color:var(--accent-cyan); padding:2px 4px; border-radius:4px;">1 modul</span>, cabang ketiga <span style="background:rgba(0,243,255,0.3); color:var(--accent-cyan); padding:2px 4px; border-radius:4px;">2 modul</span>, lalu 3, dan 5 modul. Berapa jumlah modul pada <span style="background:rgba(255,183,3,0.3); color:var(--accent-amber); padding:2px 4px; border-radius:4px;">cabang ke-7</span>?`;
+        }
+
+        function checkLitAnswer() {
+            const val = parseInt(document.getElementById('litAnswerInput').value);
+            const fb = document.getElementById('litFeedback');
+            fb.style.display = 'block';
+            // Deret: 1, 1, 2, 3, 5, 8, 13 (suku ke-7 adalah 13)
+            if(val === 13) {
+                playSuccessSound();
+                fb.style.borderLeftColor = 'var(--success)';
+                fb.innerHTML = `<strong style="color:var(--success)">MISI LITERASI SUKSES!</strong> Urutan suku ke-7 adalah 13 modul (hasil dari 5 + 8).`;
+            } else {
+                playErrorSound();
+                fb.style.borderLeftColor = 'var(--danger)';
+                fb.innerHTML = `<strong style="color:var(--danger)">BELUM TEPAT!</strong> Ingat pola: 1, 1, 2, 3, 5, 8, 13.`;
+            }
+        }
+
+        // --- Tab 4: Simulasi Kuis ---
+        let quizIdx = 0;
+        let quizScore = 0;
+        let hintsLeft = 3;
+
+        const quizList = [
+            { q: "Tentukan angka berikutnya: 0, 1, 1, 2, 3, 5, ?", opts: ["7", "8", "11"], ans: 1, exp: "Hasil dari 3 + 5 = 8." },
+            { q: "Manakah yang merupakan ciri khas utama barisan Fibonacci?", opts: ["Selisih tetap", "Rasio pengali tetap", "Penjumlahan dua suku sebelumnya"], ans: 2, exp: "Fibonacci dibentuk dengan menjumlahkan Uₙ₋₂ + Uₙ₋₁." },
+            { q: "Diketahui dua suku berurutan 8 dan 13. Berapa suku berikutnya?", opts: ["21", "18", "24"], ans: 0, exp: "Hasil dari 8 + 13 = 21." },
+            { q: "Jika suku ke-4 adalah 3 dan suku ke-5 adalah 5, berapa suku ke-3?", opts: ["1", "2", "4"], ans: 1, exp: "Arah mundur: 5 dikurangi 3 = 2." },
+            { q: "Manakah yang BUKAN bagian dari deret Fibonacci standar (mulai 0, 1)?", opts: ["21", "34", "30"], ans: 2, exp: "Angka 30 tidak ada dalam deret standar." }
+        ];
+
+        function renderQuiz() {
+            if(quizIdx >= quizList.length) {
+                document.getElementById('quizQuestionBox').innerHTML = `<h3>🎉 SIMULASI SELESAI!</h3><p>Energi Skor Total Anda: ${quizScore}</p>`;
+                document.getElementById('quizOptionsBox').innerHTML = '';
+                document.getElementById('quizFeedback').style.display = 'none';
+                return;
+            }
+            
+            const q = quizList[quizIdx];
+            document.getElementById('quizProgressNum').textContent = `Misi: ${quizIdx + 1} / ${quizList.length}`;
+            document.getElementById('quizScoreText').textContent = `Energi Skor: ${quizScore}`;
+            document.getElementById('quizQuestionBox').innerHTML = `<div style="font-size:0.85rem; font-weight:bold;">${q.q}</div>`;
+            
+            const optBox = document.getElementById('quizOptionsBox');
+            optBox.innerHTML = '';
+            q.opts.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerHTML = `<span>${opt}</span><span class="badge badge-cyan">Opsi ${idx+1}</span>`;
+                btn.onclick = () => checkQuizAnswer(idx, btn);
+                optBox.appendChild(btn);
+            });
+            document.getElementById('quizFeedback').style.display = 'none';
+        }
+
+        function checkQuizAnswer(selectedIdx, btnEl) {
+            const q = quizList[quizIdx];
+            const fb = document.getElementById('quizFeedback');
+            fb.style.display = 'block';
+            
+            if(selectedIdx === q.ans) {
+                playSuccessSound();
+                btnEl.classList.add('correct');
+                quizScore += 20;
+                fb.style.borderLeftColor = 'var(--success)';
+                fb.innerHTML = `<strong style="color:var(--success)">BENAR!</strong> ${q.exp}`;
+            } else {
+                playErrorSound();
+                btnEl.classList.add('incorrect');
+                fb.style.borderLeftColor = 'var(--danger)';
+                fb.innerHTML = `<strong style="color:var(--danger)">KURANG TEPAT!</strong> ${q.exp}`;
+            }
+            
+            setTimeout(() => {
+                quizIdx++;
+                renderQuiz();
+            }, 1800);
+        }
+
+        function useRadarHint() {
+            if(hintsLeft > 0) {
+                hintsLeft--;
+                playTone(500, 0.1);
+                document.getElementById('hintBtn').textContent = `💡 Bantuan Radar Petunjuk (${hintsLeft})`;
+                alert("Petunjuk Kapten: Perhatikan kembali penjumlahan dua angka sebelumnya atau gunakan pola mundur jika mencari suku sebelumnya.");
+            } else {
+                alert("Bantuan radar habis!");
+            }
+        }
+        renderQuiz();
+    </script>
+</body>
+</html>
